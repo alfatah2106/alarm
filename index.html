@@ -36,8 +36,8 @@
 <body class="bg-slate-900 text-slate-200 min-h-screen pb-10">
 
     <!-- AUDIO ELEMENT -->
-    <!-- Pastikan file hasil download Pixabay dinamai 'bel.mp3' dan ditaruh satu folder -->
-    <audio id="customAlarmAudio" src="bel.mp3" preload="auto" playsinline></audio>
+    <!-- Event listener onerror ditambahkan langsung untuk deteksi dini -->
+    <audio id="customAlarmAudio" src="bel.mp3" preload="auto" playsinline onerror="handleAudioError(event)"></audio>
 
     <!-- Navbar -->
     <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg transition-colors duration-300">
@@ -85,6 +85,12 @@
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col justify-between">
                 <div>
                     <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-4">Kontrol Manual</h2>
+
+                    <!-- Indikator File Audio -->
+                    <div id="audioFileStatus" class="mb-3 text-[10px] bg-slate-900 p-2 rounded text-slate-400 flex items-center gap-2">
+                        <i class="fas fa-spinner fa-spin text-blue-500"></i> Memeriksa file bel.mp3...
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <button onclick="testAlarm()" class="flex flex-col items-center justify-center p-3 bg-slate-700 hover:bg-slate-600 rounded-xl border border-slate-600 transition-colors group">
                             <i class="fas fa-play text-blue-400 mb-2 group-hover:scale-110 transition-transform"></i>
@@ -97,7 +103,7 @@
                     </div>
                 </div>
                 <div class="mt-4 pt-4 border-t border-slate-700">
-                    <p class="text-xs text-slate-500"><i class="fas fa-info-circle mr-1"></i> Download bel dari link Pixabay, namai <b>bel.mp3</b>, simpan satu folder dengan file ini.</p>
+                    <p class="text-xs text-slate-500"><i class="fas fa-info-circle mr-1"></i> Pastikan <b>bel.mp3</b> ada di folder yang sama.</p>
                 </div>
             </div>
 
@@ -136,6 +142,41 @@
         let oscillator = null;
         let lastTriggeredDayTime = "";
         let wakeLock = null;
+
+        // --- HANDLER ERROR AUDIO ---
+        function handleAudioError(e) {
+            const statusEl = document.getElementById('audioFileStatus');
+            const audio = e.target;
+            let msg = "Terjadi kesalahan.";
+
+            if (audio.error) {
+                switch (audio.error.code) {
+                    case 1: msg = "Pemuatan dibatalkan user."; break;
+                    case 2: msg = "Masalah jaringan/koneksi."; break;
+                    case 3: msg = "Error Decode (File rusak?)"; break;
+                    case 4: msg = "File bel.mp3 TIDAK DITEMUKAN."; break;
+                }
+            }
+            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-red-500"></i> <span class="text-red-400">${msg}</span>`;
+            console.error("Audio Error:", audio.error);
+        }
+
+        // Cek status saat load
+        window.addEventListener('load', () => {
+            const audio = document.getElementById('customAlarmAudio');
+            // Cek simple apakah readyState cukup
+            setTimeout(() => {
+                const statusEl = document.getElementById('audioFileStatus');
+                if (!audio.error) {
+                    if (audio.readyState >= 2) {
+                        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <span class="text-green-400">File bel.mp3 Siap.</span>`;
+                    } else {
+                        // Masih mencoba load, mungkin 404 jika kelamaan
+                        statusEl.innerHTML = `<i class="fas fa-question-circle text-yellow-500"></i> <span class="text-yellow-400">Menunggu file... (Cek nama file)</span>`;
+                    }
+                }
+            }, 1000);
+        });
 
         function init() {
             loadConfig();
@@ -266,14 +307,17 @@
             if (alarmConfig[dayName] && alarmConfig[dayName][currentHM]) {
                 const triggerId = `${dayName}-${currentHM}`;
                 if (lastTriggeredDayTime !== triggerId) {
-                    triggerAlarm(currentHM);
+                    triggerAlarm(currentHM, false); // False = bukan test
                     lastTriggeredDayTime = triggerId;
                 }
             }
         }
 
-        function triggerAlarm(time) {
+        // isTest = boolean untuk membedakan test manual dengan alarm otomatis
+        function triggerAlarm(time, isTest = false) {
             isRinging = true;
+
+            // Visual
             const nav = document.querySelector('nav');
             nav.classList.add('alarm-ringing', 'border-red-500');
             const stopBtn = document.getElementById('stopBtn');
@@ -284,7 +328,28 @@
             if (Notification.permission === "granted") {
                 new Notification("ALARM SEKOLAH", { body: `Saatnya pergantian jam: ${time}`, icon: 'favicon.png' });
             }
-            playAlarmSoundWithFallback();
+
+            // Jika ini TEST manual, kita panggil fungsi play secara langsung tanpa wrapper
+            // agar dianggap user interaction murni.
+            if (isTest) {
+                const customAudio = document.getElementById('customAlarmAudio');
+                customAudio.currentTime = 0;
+                const playPromise = customAudio.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // Sukses play MP3
+                        customAudio.onended = () => { if(isRinging) stopAlarmManual(); };
+                    }).catch(error => {
+                        // Gagal Play MP3
+                        alert("Gagal memutar MP3: " + error.message + "\n\nSistem beralih ke nada Beep Digital.");
+                        playOscillatorAlarm();
+                    });
+                }
+            } else {
+                // Jika Alarm Otomatis, pakai logika fallback biasa
+                playAlarmSoundWithFallback();
+            }
         }
 
         function stopAlarmManual() {
@@ -304,25 +369,25 @@
             const text = document.getElementById('statusText');
 
             if (!isSystemActive) {
-                // 1. UNLOCK MOBILE AUDIO (PENTING)
-                // Init Audio Context (untuk beep digital)
+                // 1. UNLOCK MOBILE AUDIO
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if(AudioContext) {
                     audioContext = new AudioContext();
                     audioContext.resume();
                 }
 
-                // 2. UNLOCK MP3 (PENTING)
-                // Memainkan file sebentar, lalu pause.
-                // Di HP, Anda mungkin mendengar suara 'tes' sebentar. Ini wajib agar browser mengizinkan audio otomatis nanti.
+                // 2. UNLOCK MP3
                 const customAudio = document.getElementById('customAlarmAudio');
+
+                // Coba play sebentar untuk memancing izin audio
                 customAudio.play().then(() => {
+                    // Jika sukses play, segera pause
                     setTimeout(() => {
                         customAudio.pause();
                         customAudio.currentTime = 0;
-                    }, 100); // Mainkan 100ms saja
+                    }, 150);
                 }).catch(e => {
-                    console.log("MP3 belum siap atau file tidak ada (akan pakai fallback digital):", e);
+                    console.log("Warning Unlock Audio: ", e);
                 });
 
                 requestWakeLock();
@@ -352,16 +417,14 @@
 
         function playAlarmSoundWithFallback() {
             const customAudio = document.getElementById('customAlarmAudio');
-            // Coba play MP3
             const playPromise = customAudio.play();
 
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    // MP3 berhasil
                     customAudio.onended = () => { if(isRinging) stopAlarmManual(); };
                 })
                 .catch(error => {
-                    // MP3 Gagal (File tidak ada atau diblokir), switch ke Digital
+                    console.log("MP3 Autoplay Fail:", error);
                     playOscillatorAlarm();
                 });
             } else {
@@ -370,14 +433,19 @@
         }
 
         function playOscillatorAlarm() {
+            if (!audioContext) {
+                 // Coba init lagi jika null (cadangan)
+                 const AudioContext = window.AudioContext || window.webkitAudioContext;
+                 if(AudioContext) audioContext = new AudioContext();
+            }
             if (!audioContext) return;
+
             oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
 
             const now = audioContext.currentTime;
-            // Pola bunyi alarm klasik
             for(let i=0; i<10; i++) {
                oscillator.frequency.linearRampToValueAtTime(800, now + i*2 + 0.5);
                oscillator.frequency.linearRampToValueAtTime(500, now + i*2 + 1.0);
@@ -408,7 +476,8 @@
                 alert("Klik tombol 'Sistem Mati' di pojok kanan atas dulu sampai berubah jadi AKTIF.");
                 return;
             }
-            triggerAlarm("UJI COBA");
+            // Kirim flag true untuk menandakan ini TEST (interaksi user langsung)
+            triggerAlarm("UJI COBA", true);
         }
 
         function updateTodayStats() {
