@@ -17,27 +17,16 @@
         body { font-family: 'Inter', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Custom Toggle Switch */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #3b82f6;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #3b82f6;
-        }
+        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
 
-        /* Animasi Alarm */
         @keyframes ring-glow {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
-        .alarm-ringing {
-            animation: ring-glow 1.5s infinite;
-            border-color: #ef4444 !important;
-        }
+        .alarm-ringing { animation: ring-glow 1.5s infinite; border-color: #ef4444 !important; }
 
-        /* Scrollbar Halus */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -46,12 +35,11 @@
 </head>
 <body class="bg-slate-900 text-slate-200 min-h-screen pb-10">
 
-    <!-- AUDIO ELEMENT CUSTOM -->
-    <!-- Siapkan file bel.mp3 di folder yang sama. Jika tidak ada, sistem pakai fallback bunyi digital. -->
-    <!-- Playsinline ditambahkan untuk kompatibilitas mobile -->
+    <!-- AUDIO ELEMENT -->
+    <!-- Pastikan file hasil download Pixabay dinamai 'bel.mp3' dan ditaruh satu folder -->
     <audio id="customAlarmAudio" src="bel.mp3" preload="auto" playsinline></audio>
 
-    <!-- Navbar / Header -->
+    <!-- Navbar -->
     <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
@@ -65,7 +53,6 @@
                     </div>
                 </div>
 
-                <!-- Status Audio Kanan -->
                 <div class="flex items-center gap-4">
                     <div id="nextAlarmBadge" class="hidden md:flex flex-col items-end mr-4">
                         <span class="text-[10px] uppercase tracking-wider text-slate-400">Jadwal Berikutnya</span>
@@ -83,7 +70,6 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
 
-        <!-- Top Section: Clock & Master Controls -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Jam Digital -->
             <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-xl relative overflow-hidden group">
@@ -95,7 +81,7 @@
                 <div id="dateDisplay" class="text-blue-400 font-medium">Memuat tanggal...</div>
             </div>
 
-            <!-- Panel Kontrol Manual -->
+            <!-- Panel Kontrol -->
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col justify-between">
                 <div>
                     <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-4">Kontrol Manual</h2>
@@ -111,8 +97,7 @@
                     </div>
                 </div>
                 <div class="mt-4 pt-4 border-t border-slate-700">
-                    <p class="text-xs text-slate-500"><i class="fas fa-file-audio mr-1"></i> Prioritas Audio: <b>bel.mp3</b> (Fallback: Digital Beep)</p>
-                    <p class="text-[10px] text-yellow-500 mt-1"><i class="fas fa-mobile-alt mr-1"></i> Tips HP: Layar harus tetap menyala</p>
+                    <p class="text-xs text-slate-500"><i class="fas fa-info-circle mr-1"></i> Download bel dari link Pixabay, namai <b>bel.mp3</b>, simpan satu folder dengan file ini.</p>
                 </div>
             </div>
 
@@ -120,36 +105,21 @@
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
                  <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-4">Status Jadwal Hari Ini</h2>
                  <div id="todayStats" class="space-y-4">
-                     <!-- Diisi via JS -->
                      <div class="animate-pulse bg-slate-700 h-20 rounded-lg"></div>
                  </div>
             </div>
         </div>
 
-        <!-- Schedule Grid Header -->
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-2xl font-bold text-white"><i class="fas fa-calendar-alt mr-2 text-blue-500"></i>Jadwal Mingguan</h2>
             <button onclick="resetToDefault()" class="text-xs text-slate-400 hover:text-white underline">Reset ke Default</button>
         </div>
 
-        <!-- Schedule Grid Container -->
-        <div id="scheduleGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            <!-- Cards akan digenerate oleh JavaScript -->
-        </div>
+        <div id="scheduleGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
 
     </main>
 
-    <!-- Script Logic -->
     <script>
-        /**
-         * PENTING UNTUK PEMISAHAN FILE:
-         * Jika Anda ingin memisahkan file ini:
-         * 1. Buat file baru bernama 'script.js'
-         * 2. Copy SEMUA kode di dalam tag <script> ini ke file 'script.js'
-         * 3. Di file HTML, hapus kode ini dan ganti dengan: <script src="script.js"><\/script>
-         */
-
-        // --- DATA DEFAULT ---
         const defaultSchedule = {
             "Senin":  ["08:30", "09:50", "11:30", "13:05"],
             "Selasa": ["08:30", "09:50", "11:30", "13:05"],
@@ -159,16 +129,14 @@
             "Sabtu":  ["08:30", "09:50", "11:30", "13:05"]
         };
 
-        // --- STATE VARIABLES ---
         let alarmConfig = {};
         let audioContext = null;
         let isSystemActive = false;
         let isRinging = false;
         let oscillator = null;
         let lastTriggeredDayTime = "";
-        let wakeLock = null; // Variable untuk menjaga layar tetap nyala
+        let wakeLock = null;
 
-        // --- INIT & STORAGE ---
         function init() {
             loadConfig();
             renderScheduleUI();
@@ -176,7 +144,6 @@
             setInterval(updateClock, 1000);
             updateTodayStats();
 
-            // Re-request wake lock on visibility change (jika user minimize dan balik lagi)
             document.addEventListener("visibilitychange", async () => {
                 if (wakeLock !== null && document.visibilityState === "visible") {
                     requestWakeLock();
@@ -188,19 +155,13 @@
             try {
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock is active!');
                 }
-            } catch (err) {
-                console.log(`Wake Lock Error: ${err.name}, ${err.message}`);
-            }
+            } catch (err) { console.log('Wake Lock Error:', err); }
         }
 
         function releaseWakeLock() {
             if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                    console.log('Wake Lock released');
-                });
+                wakeLock.release().then(() => wakeLock = null);
             }
         }
 
@@ -221,30 +182,24 @@
 
         function resetToDefault() {
             if(Object.keys(alarmConfig).length > 0 && !confirm("Kembalikan semua pengaturan jadwal ke awal?")) return;
-
             alarmConfig = {};
             for (const day in defaultSchedule) {
                 alarmConfig[day] = {};
-                defaultSchedule[day].forEach(time => {
-                    alarmConfig[day][time] = true;
-                });
+                defaultSchedule[day].forEach(time => alarmConfig[day][time] = true);
             }
             if(localStorage.getItem('schoolAlarmConfig_v2')) saveConfig();
             renderScheduleUI();
         }
 
-        // --- UI RENDERING ---
         function renderScheduleUI() {
             const grid = document.getElementById('scheduleGrid');
             grid.innerHTML = '';
-
             const daysOrder = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
             const todayName = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
 
             daysOrder.forEach(day => {
                 const isToday = (day === todayName);
                 const times = alarmConfig[day] || {};
-
                 const sortedTimes = Object.keys(times).sort();
 
                 let html = `
@@ -262,22 +217,18 @@
                     sortedTimes.forEach(time => {
                         const isActive = times[time];
                         const inputId = `chk-${day}-${time}`;
-
                         html += `
                         <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 transition-colors">
                             <span class="font-mono text-lg ${isActive ? 'text-white' : 'text-slate-500 decoration-slate-600'}">${time}</span>
-
                             <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
                                 <input type="checkbox" name="${inputId}" id="${inputId}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 checked:right-0 checked:border-blue-600 transition-all duration-300"
                                 ${isActive ? 'checked' : ''}
                                 onchange="toggleTime('${day}', '${time}')"/>
                                 <label for="${inputId}" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-700 cursor-pointer checked:bg-blue-600 transition-colors duration-300"></label>
                             </div>
-                        </div>
-                        `;
+                        </div>`;
                     });
                 }
-
                 html += `</div></div>`;
                 grid.innerHTML += html;
             });
@@ -286,10 +237,8 @@
         function toggleTime(day, time) {
             alarmConfig[day][time] = !alarmConfig[day][time];
             saveConfig();
-
             const input = document.getElementById(`chk-${day}-${time}`);
             const timeDisplay = input.parentElement.previousElementSibling;
-
             if(alarmConfig[day][time]) {
                 timeDisplay.classList.remove('text-slate-500', 'decoration-slate-600');
                 timeDisplay.classList.add('text-white');
@@ -299,15 +248,12 @@
             }
         }
 
-        // --- CLOCK & ALARM LOGIC ---
         function updateClock() {
             const now = new Date();
             const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const dayName = days[now.getDay()];
-
             document.getElementById('clockDisplay').textContent = now.toLocaleTimeString('id-ID', { hour12: false });
             document.getElementById('dateDisplay').textContent = `${dayName}, ${now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`;
-
             checkAlarm(now, dayName);
         }
 
@@ -328,71 +274,60 @@
 
         function triggerAlarm(time) {
             isRinging = true;
-
             const nav = document.querySelector('nav');
             nav.classList.add('alarm-ringing', 'border-red-500');
-
             const stopBtn = document.getElementById('stopBtn');
             stopBtn.disabled = false;
             stopBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
             stopBtn.classList.add('bg-red-600', 'animate-pulse', 'hover:bg-red-500');
 
             if (Notification.permission === "granted") {
-                new Notification("ALARM SEKOLAH", {
-                    body: `Saatnya pergantian jam: ${time}`,
-                    icon: 'favicon.png'
-                });
+                new Notification("ALARM SEKOLAH", { body: `Saatnya pergantian jam: ${time}`, icon: 'favicon.png' });
             }
-
             playAlarmSoundWithFallback();
         }
 
         function stopAlarmManual() {
             isRinging = false;
             stopSound();
-
             const nav = document.querySelector('nav');
             nav.classList.remove('alarm-ringing', 'border-red-500');
-
             const stopBtn = document.getElementById('stopBtn');
             stopBtn.disabled = true;
             stopBtn.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
             stopBtn.classList.remove('bg-red-600', 'animate-pulse', 'hover:bg-red-500');
         }
 
-        // --- AUDIO SYSTEM (HYBRID: MP3 + OSCILLATOR) ---
         function toggleSystem() {
             const btn = document.getElementById('audioToggleBtn');
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
 
             if (!isSystemActive) {
-                // 1. UNLOCK AUDIO DI MOBILE: Init Context
+                // 1. UNLOCK MOBILE AUDIO (PENTING)
+                // Init Audio Context (untuk beep digital)
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if(AudioContext) {
                     audioContext = new AudioContext();
                     audioContext.resume();
                 }
 
-                // 2. UNLOCK MP3 DI MOBILE: Play & Pause Immediately
-                // Ini menipu browser agar menganggap audio sudah diizinkan user
+                // 2. UNLOCK MP3 (PENTING)
+                // Memainkan file sebentar, lalu pause.
+                // Di HP, Anda mungkin mendengar suara 'tes' sebentar. Ini wajib agar browser mengizinkan audio otomatis nanti.
                 const customAudio = document.getElementById('customAlarmAudio');
-                customAudio.volume = 0; // Silent dulu
                 customAudio.play().then(() => {
-                    customAudio.pause();
-                    customAudio.currentTime = 0;
-                    customAudio.volume = 1; // Kembalikan volume
-                    console.log("Audio unlock sukses");
+                    setTimeout(() => {
+                        customAudio.pause();
+                        customAudio.currentTime = 0;
+                    }, 100); // Mainkan 100ms saja
                 }).catch(e => {
-                    console.log("Audio unlock warning: " + e);
+                    console.log("MP3 belum siap atau file tidak ada (akan pakai fallback digital):", e);
                 });
 
-                // 3. AKTIFKAN WAKE LOCK (Agar HP tidak tidur)
                 requestWakeLock();
-
                 isSystemActive = true;
 
-                // UI Update
                 btn.classList.remove('bg-slate-700', 'border-slate-600');
                 btn.classList.add('bg-slate-800', 'border-green-500', 'text-green-400');
                 dot.classList.remove('bg-red-500');
@@ -400,15 +335,12 @@
                 text.textContent = "Sistem AKTIF";
 
                 if (Notification.permission !== "granted") Notification.requestPermission();
-
-                // Bunyi Feedback
-                playShortBeep();
                 findNextAlarm();
 
             } else {
                 isSystemActive = false;
                 stopAlarmManual();
-                releaseWakeLock(); // Lepaskan wake lock
+                releaseWakeLock();
 
                 btn.classList.add('bg-slate-700', 'border-slate-600');
                 btn.classList.remove('bg-slate-800', 'border-green-500', 'text-green-400');
@@ -420,18 +352,16 @@
 
         function playAlarmSoundWithFallback() {
             const customAudio = document.getElementById('customAlarmAudio');
-
             // Coba play MP3
             const playPromise = customAudio.play();
 
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    customAudio.onended = () => {
-                        if(isRinging) stopAlarmManual();
-                    };
+                    // MP3 berhasil
+                    customAudio.onended = () => { if(isRinging) stopAlarmManual(); };
                 })
                 .catch(error => {
-                    console.warn("MP3 Gagal (Mungkin diblokir browser atau file tidak ada). Pindah ke Digital.", error);
+                    // MP3 Gagal (File tidak ada atau diblokir), switch ke Digital
                     playOscillatorAlarm();
                 });
             } else {
@@ -443,11 +373,11 @@
             if (!audioContext) return;
             oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-
             oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
 
             const now = audioContext.currentTime;
+            // Pola bunyi alarm klasik
             for(let i=0; i<10; i++) {
                oscillator.frequency.linearRampToValueAtTime(800, now + i*2 + 0.5);
                oscillator.frequency.linearRampToValueAtTime(500, now + i*2 + 1.0);
@@ -459,30 +389,14 @@
             gainNode.connect(audioContext.destination);
             oscillator.start();
             oscillator.stop(audioContext.currentTime + 20);
-
-            oscillator.onended = () => {
-                if(isRinging) stopAlarmManual();
-            };
-        }
-
-        function playShortBeep() {
-            if (!audioContext) return;
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            osc.frequency.value = 600;
-            osc.start();
-            osc.stop(audioContext.currentTime + 0.1);
+            oscillator.onended = () => { if(isRinging) stopAlarmManual(); };
         }
 
         function stopSound() {
-            // Stop MP3
             const customAudio = document.getElementById('customAlarmAudio');
             customAudio.pause();
             customAudio.currentTime = 0;
 
-            // Stop Oscillator
             if (oscillator) {
                 try { oscillator.stop(); oscillator.disconnect(); } catch(e){}
                 oscillator = null;
@@ -491,7 +405,7 @@
 
         function testAlarm() {
             if (!isSystemActive) {
-                alert("PENTING UNTUK HP: Klik tombol 'Sistem Mati' di pojok kanan atas dulu sampai berubah jadi AKTIF.");
+                alert("Klik tombol 'Sistem Mati' di pojok kanan atas dulu sampai berubah jadi AKTIF.");
                 return;
             }
             triggerAlarm("UJI COBA");
@@ -500,20 +414,16 @@
         function updateTodayStats() {
             const todayName = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
             const container = document.getElementById('todayStats');
-
             if (todayName === 'Minggu') {
                 container.innerHTML = `<div class="p-3 bg-slate-900 rounded text-center text-slate-500">Hari ini libur</div>`;
                 return;
             }
-
             const times = alarmConfig[todayName] || {};
             const sorted = Object.keys(times).sort();
-
             if (sorted.length === 0) {
                  container.innerHTML = `<div class="p-3 bg-slate-900 rounded text-center text-slate-500">Tidak ada jadwal hari ini</div>`;
                  return;
             }
-
             let html = '<div class="grid grid-cols-2 gap-2">';
             sorted.forEach(t => {
                 const isActive = times[t];
@@ -521,8 +431,7 @@
                     <div class="flex items-center justify-between p-2 rounded ${isActive ? 'bg-blue-900/30 border border-blue-500/30' : 'bg-slate-900/30 border border-slate-700 opacity-50'}">
                         <span class="font-mono text-sm ${isActive ? 'text-blue-300' : 'text-slate-500'}">${t}</span>
                         <i class="fas ${isActive ? 'fa-check-circle text-green-500' : 'fa-times-circle text-slate-600'} text-xs"></i>
-                    </div>
-                `;
+                    </div>`;
             });
             html += '</div>';
             container.innerHTML = html;
@@ -535,10 +444,8 @@
                 document.getElementById('nextAlarmTime').textContent = "Senin";
                 return;
             }
-
             const currentHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
             const times = alarmConfig[dayName] || {};
-
             const sorted = Object.keys(times).sort();
             const next = sorted.find(t => t > currentHM && times[t] === true);
 
@@ -549,9 +456,7 @@
             }
         }
 
-        // START
         init();
-
     </script>
 </body>
 </html>
