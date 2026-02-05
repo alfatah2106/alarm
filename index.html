@@ -3,12 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Bel Sekolah Pro</title>
+    <title>Sistem Bel Sekolah Pro</title>
+
+    <!-- FAVICON: Siapkan file favicon.png di folder yang sama -->
+    <link rel="icon" href="favicon.png" type="image/png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
-        
+
         body { font-family: 'Inter', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
@@ -20,7 +25,7 @@
         .toggle-checkbox:checked + .toggle-label {
             background-color: #3b82f6;
         }
-        
+
         /* Animasi Alarm */
         @keyframes ring-glow {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -31,7 +36,7 @@
             animation: ring-glow 1.5s infinite;
             border-color: #ef4444 !important;
         }
-        
+
         /* Scrollbar Halus */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
@@ -41,8 +46,12 @@
 </head>
 <body class="bg-slate-900 text-slate-200 min-h-screen pb-10">
 
+    <!-- AUDIO ELEMENT CUSTOM -->
+    <!-- Siapkan file bel.mp3 di folder yang sama. Jika tidak ada, sistem pakai fallback bunyi digital. -->
+    <audio id="customAlarmAudio" src="bel.mp3" preload="auto"></audio>
+
     <!-- Navbar / Header -->
-    <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg">
+    <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
                 <div class="flex items-center gap-3">
@@ -54,7 +63,7 @@
                         <p class="text-xs text-slate-400">Dashboard Kontrol Otomatis</p>
                     </div>
                 </div>
-                
+
                 <!-- Status Audio Kanan -->
                 <div class="flex items-center gap-4">
                     <div id="nextAlarmBadge" class="hidden md:flex flex-col items-end mr-4">
@@ -72,7 +81,7 @@
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        
+
         <!-- Top Section: Clock & Master Controls -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Jam Digital -->
@@ -101,10 +110,10 @@
                     </div>
                 </div>
                 <div class="mt-4 pt-4 border-t border-slate-700">
-                    <p class="text-xs text-slate-500"><i class="fas fa-info-circle mr-1"></i> Pengaturan disimpan otomatis di perangkat ini.</p>
+                    <p class="text-xs text-slate-500"><i class="fas fa-file-audio mr-1"></i> Prioritas Audio: <b>bel.mp3</b> (Fallback: Digital Beep)</p>
                 </div>
             </div>
-            
+
             <!-- Quick Stats -->
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
                  <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-4">Status Jadwal Hari Ini</h2>
@@ -130,8 +139,15 @@
 
     <!-- Script Logic -->
     <script>
+        /**
+         * PENTING UNTUK PEMISAHAN FILE:
+         * Jika Anda ingin memisahkan file ini:
+         * 1. Buat file baru bernama 'script.js'
+         * 2. Copy SEMUA kode di dalam tag <script> ini ke file 'script.js'
+         * 3. Di file HTML, hapus kode ini dan ganti dengan: <script src="script.js"><\/script>
+         */
+
         // --- DATA DEFAULT ---
-        // Struktur data: Object dengan key Hari, berisi array Object Waktu
         const defaultSchedule = {
             "Senin":  ["08:30", "09:50", "11:30", "13:05"],
             "Selasa": ["08:30", "09:50", "11:30", "13:05"],
@@ -142,12 +158,12 @@
         };
 
         // --- STATE VARIABLES ---
-        let alarmConfig = {}; 
+        let alarmConfig = {};
         let audioContext = null;
         let isSystemActive = false;
         let isRinging = false;
         let oscillator = null;
-        let lastTriggeredDayTime = ""; // Format: "Senin-08:30" untuk mencegah double trigger
+        let lastTriggeredDayTime = "";
 
         // --- INIT & STORAGE ---
         function init() {
@@ -163,8 +179,6 @@
             if (saved) {
                 alarmConfig = JSON.parse(saved);
             } else {
-                // Konversi array default simple ke format object dengan status active
-                // Format baru: { "Senin": { "08:30": true, "09:50": true }, ... }
                 resetToDefault();
             }
         }
@@ -176,32 +190,33 @@
         }
 
         function resetToDefault() {
-            if(confirm("Kembalikan semua pengaturan jadwal ke awal?")) {
-                alarmConfig = {};
-                for (const day in defaultSchedule) {
-                    alarmConfig[day] = {};
-                    defaultSchedule[day].forEach(time => {
-                        alarmConfig[day][time] = true; // Default aktif (true)
-                    });
-                }
-                saveConfig();
-                renderScheduleUI();
+            // Logic reset tanpa confirm di awal load, dengan confirm jika dipanggil tombol
+            if(Object.keys(alarmConfig).length > 0 && !confirm("Kembalikan semua pengaturan jadwal ke awal?")) return;
+
+            alarmConfig = {};
+            for (const day in defaultSchedule) {
+                alarmConfig[day] = {};
+                defaultSchedule[day].forEach(time => {
+                    alarmConfig[day][time] = true;
+                });
             }
+            // Simpan hanya jika ini bukan inisialisasi awal kosong
+            if(localStorage.getItem('schoolAlarmConfig_v2')) saveConfig();
+            renderScheduleUI();
         }
 
         // --- UI RENDERING ---
         function renderScheduleUI() {
             const grid = document.getElementById('scheduleGrid');
             grid.innerHTML = '';
-            
+
             const daysOrder = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
             const todayName = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
 
             daysOrder.forEach(day => {
                 const isToday = (day === todayName);
-                const times = alarmConfig[day]; // Object { "08:30": true, ... }
-                
-                // Urutkan waktu
+                const times = alarmConfig[day] || {};
+
                 const sortedTimes = Object.keys(times).sort();
 
                 let html = `
@@ -219,15 +234,14 @@
                     sortedTimes.forEach(time => {
                         const isActive = times[time];
                         const inputId = `chk-${day}-${time}`;
-                        
+
                         html += `
                         <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 transition-colors">
                             <span class="font-mono text-lg ${isActive ? 'text-white' : 'text-slate-500 decoration-slate-600'}">${time}</span>
-                            
-                            <!-- Custom Toggle -->
+
                             <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" name="${inputId}" id="${inputId}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 checked:right-0 checked:border-blue-600 transition-all duration-300" 
-                                ${isActive ? 'checked' : ''} 
+                                <input type="checkbox" name="${inputId}" id="${inputId}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 checked:right-0 checked:border-blue-600 transition-all duration-300"
+                                ${isActive ? 'checked' : ''}
                                 onchange="toggleTime('${day}', '${time}')"/>
                                 <label for="${inputId}" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-700 cursor-pointer checked:bg-blue-600 transition-colors duration-300"></label>
                             </div>
@@ -236,23 +250,18 @@
                     });
                 }
 
-                html += `
-                    </div>
-                </div>
-                `;
+                html += `</div></div>`;
                 grid.innerHTML += html;
             });
         }
 
         function toggleTime(day, time) {
-            // Flip boolean
             alarmConfig[day][time] = !alarmConfig[day][time];
             saveConfig();
-            
-            // Visual feedback text only (optional, css already handles toggle visual)
+
             const input = document.getElementById(`chk-${day}-${time}`);
             const timeDisplay = input.parentElement.previousElementSibling;
-            
+
             if(alarmConfig[day][time]) {
                 timeDisplay.classList.remove('text-slate-500', 'decoration-slate-600');
                 timeDisplay.classList.add('text-white');
@@ -267,12 +276,10 @@
             const now = new Date();
             const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const dayName = days[now.getDay()];
-            
-            // Update Clock UI
+
             document.getElementById('clockDisplay').textContent = now.toLocaleTimeString('id-ID', { hour12: false });
             document.getElementById('dateDisplay').textContent = `${dayName}, ${now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
-            // Check Alarm logic
             checkAlarm(now, dayName);
         }
 
@@ -281,14 +288,10 @@
             if (dayName === 'Minggu') return;
 
             const currentHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
-            
-            // Cek di config
+
             if (alarmConfig[dayName] && alarmConfig[dayName][currentHM]) {
-                // Config ada dan bernilai TRUE (Aktif)
                 const triggerId = `${dayName}-${currentHM}`;
-                
                 if (lastTriggeredDayTime !== triggerId) {
-                    // Mencegah trigger berulang di detik berbeda pada menit yang sama
                     triggerAlarm(currentHM);
                     lastTriggeredDayTime = triggerId;
                 }
@@ -297,73 +300,67 @@
 
         function triggerAlarm(time) {
             isRinging = true;
-            
-            // Visual Effect
+
             const nav = document.querySelector('nav');
             nav.classList.add('alarm-ringing', 'border-red-500');
-            
-            // Button Update
+
             const stopBtn = document.getElementById('stopBtn');
             stopBtn.disabled = false;
             stopBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
             stopBtn.classList.add('bg-red-600', 'animate-pulse', 'hover:bg-red-500');
-            
-            // Notification
+
             if (Notification.permission === "granted") {
-                new Notification("ALARM SEKOLAH", { 
+                new Notification("ALARM SEKOLAH", {
                     body: `Saatnya pergantian jam: ${time}`,
-                    icon: 'https://cdn-icons-png.flaticon.com/512/3233/3233997.png'
+                    icon: 'favicon.png'
                 });
             }
 
-            playAlarmSound();
+            playAlarmSoundWithFallback();
         }
 
         function stopAlarmManual() {
             isRinging = false;
             stopSound();
-            
-            // Reset UI
+
             const nav = document.querySelector('nav');
             nav.classList.remove('alarm-ringing', 'border-red-500');
-            
+
             const stopBtn = document.getElementById('stopBtn');
             stopBtn.disabled = true;
             stopBtn.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
             stopBtn.classList.remove('bg-red-600', 'animate-pulse', 'hover:bg-red-500');
         }
 
-        // --- AUDIO SYSTEM ---
+        // --- AUDIO SYSTEM (HYBRID: MP3 + OSCILLATOR) ---
         function toggleSystem() {
             const btn = document.getElementById('audioToggleBtn');
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
 
             if (!isSystemActive) {
-                // Aktifkan
+                // Init Audio Context untuk Oscillator (Fallback)
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 audioContext.resume().then(() => {
                     isSystemActive = true;
+
                     // UI Update
                     btn.classList.remove('bg-slate-700', 'border-slate-600');
                     btn.classList.add('bg-slate-800', 'border-green-500', 'text-green-400');
                     dot.classList.remove('bg-red-500');
                     dot.classList.add('bg-green-500', 'animate-pulse');
                     text.textContent = "Sistem AKTIF";
-                    
-                    // Request Notification Permission
+
                     if (Notification.permission !== "granted") Notification.requestPermission();
-                    
+
                     // Bunyi Feedback
                     playShortBeep();
                     findNextAlarm();
                 });
             } else {
-                // Nonaktifkan
                 isSystemActive = false;
                 stopAlarmManual();
-                
-                // UI Update
+
                 btn.classList.add('bg-slate-700', 'border-slate-600');
                 btn.classList.remove('bg-slate-800', 'border-green-500', 'text-green-400');
                 dot.classList.add('bg-red-500');
@@ -372,17 +369,40 @@
             }
         }
 
-        function playAlarmSound() {
+        function playAlarmSoundWithFallback() {
+            const customAudio = document.getElementById('customAlarmAudio');
+
+            // Coba play MP3
+            const playPromise = customAudio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    // MP3 berhasil diputar
+                    // Setup event listener untuk stop manual jika lagu selesai
+                    customAudio.onended = () => {
+                        if(isRinging) stopAlarmManual();
+                    };
+                })
+                .catch(error => {
+                    console.warn("File bel.mp3 tidak ditemukan atau gagal diputar. Menggunakan Fallback Digital.");
+                    // Gagal? Pakai Oscillator
+                    playOscillatorAlarm();
+                });
+            } else {
+                playOscillatorAlarm();
+            }
+        }
+
+        function playOscillatorAlarm() {
             if (!audioContext) return;
             oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-            
+
             oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
-            
-            // Pola sirine naik turun
+
             const now = audioContext.currentTime;
-            for(let i=0; i<10; i++) { // Ulang pola
+            for(let i=0; i<10; i++) {
                oscillator.frequency.linearRampToValueAtTime(800, now + i*2 + 0.5);
                oscillator.frequency.linearRampToValueAtTime(500, now + i*2 + 1.0);
                oscillator.frequency.linearRampToValueAtTime(800, now + i*2 + 1.5);
@@ -392,13 +412,13 @@
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
             oscillator.start();
-            oscillator.stop(audioContext.currentTime + 20); // Max 20 detik
-            
+            oscillator.stop(audioContext.currentTime + 20);
+
             oscillator.onended = () => {
                 if(isRinging) stopAlarmManual();
             };
         }
-        
+
         function playShortBeep() {
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
@@ -410,6 +430,12 @@
         }
 
         function stopSound() {
+            // Stop MP3
+            const customAudio = document.getElementById('customAlarmAudio');
+            customAudio.pause();
+            customAudio.currentTime = 0;
+
+            // Stop Oscillator
             if (oscillator) {
                 try { oscillator.stop(); oscillator.disconnect(); } catch(e){}
                 oscillator = null;
@@ -424,11 +450,10 @@
             triggerAlarm("UJI COBA");
         }
 
-        // --- HELPER INFO ---
         function updateTodayStats() {
             const todayName = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
             const container = document.getElementById('todayStats');
-            
+
             if (todayName === 'Minggu') {
                 container.innerHTML = `<div class="p-3 bg-slate-900 rounded text-center text-slate-500">Hari ini libur</div>`;
                 return;
@@ -436,7 +461,7 @@
 
             const times = alarmConfig[todayName] || {};
             const sorted = Object.keys(times).sort();
-            
+
             if (sorted.length === 0) {
                  container.innerHTML = `<div class="p-3 bg-slate-900 rounded text-center text-slate-500">Tidak ada jadwal hari ini</div>`;
                  return;
@@ -457,7 +482,6 @@
         }
 
         function findNextAlarm() {
-            // Sederhana: cek alarm berikutnya hari ini
             const now = new Date();
             const dayName = now.toLocaleDateString('id-ID', { weekday: 'long' });
             if (dayName === 'Minggu') {
@@ -467,11 +491,10 @@
 
             const currentHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
             const times = alarmConfig[dayName] || {};
-            
-            // Cari waktu yang aktif (true) dan > currentHM
+
             const sorted = Object.keys(times).sort();
             const next = sorted.find(t => t > currentHM && times[t] === true);
-            
+
             if (next) {
                 document.getElementById('nextAlarmTime').textContent = next;
             } else {
