@@ -36,7 +36,6 @@
 <body class="bg-slate-900 text-slate-200 min-h-screen pb-10">
 
     <!-- AUDIO ELEMENT -->
-    <!-- Event listener onerror ditambahkan langsung untuk deteksi dini -->
     <audio id="customAlarmAudio" src="bel.mp3" preload="auto" playsinline onerror="handleAudioError(event)"></audio>
 
     <!-- Navbar -->
@@ -164,14 +163,12 @@
         // Cek status saat load
         window.addEventListener('load', () => {
             const audio = document.getElementById('customAlarmAudio');
-            // Cek simple apakah readyState cukup
             setTimeout(() => {
                 const statusEl = document.getElementById('audioFileStatus');
                 if (!audio.error) {
                     if (audio.readyState >= 2) {
                         statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <span class="text-green-400">File bel.mp3 Siap.</span>`;
                     } else {
-                        // Masih mencoba load, mungkin 404 jika kelamaan
                         statusEl.innerHTML = `<i class="fas fa-question-circle text-yellow-500"></i> <span class="text-yellow-400">Menunggu file... (Cek nama file)</span>`;
                     }
                 }
@@ -197,7 +194,7 @@
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
                 }
-            } catch (err) { console.log('Wake Lock Error:', err); }
+            } catch (err) { console.log('Wake Lock Info:', err); }
         }
 
         function releaseWakeLock() {
@@ -325,13 +322,10 @@
             stopBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
             stopBtn.classList.add('bg-red-600', 'animate-pulse', 'hover:bg-red-500');
 
-            if (Notification.permission === "granted") {
-                new Notification("ALARM SEKOLAH", { body: `Saatnya pergantian jam: ${time}`, icon: 'favicon.png' });
-            }
-
-            // Jika ini TEST manual, kita panggil fungsi play secara langsung tanpa wrapper
-            // agar dianggap user interaction murni.
+            // 1. PRIORITAS UTAMA: AUDIO (Dijalankan SEBELUM notifikasi)
+            // Ini untuk mencegah error notifikasi menghentikan audio
             if (isTest) {
+                // Test Manual: Direct Play
                 const customAudio = document.getElementById('customAlarmAudio');
                 customAudio.currentTime = 0;
                 const playPromise = customAudio.play();
@@ -341,14 +335,25 @@
                         // Sukses play MP3
                         customAudio.onended = () => { if(isRinging) stopAlarmManual(); };
                     }).catch(error => {
-                        // Gagal Play MP3
-                        alert("Gagal memutar MP3: " + error.message + "\n\nSistem beralih ke nada Beep Digital.");
+                        // Gagal Play MP3 (Fallback)
+                        console.warn("MP3 Gagal (Test):", error);
                         playOscillatorAlarm();
                     });
                 }
             } else {
-                // Jika Alarm Otomatis, pakai logika fallback biasa
+                // Alarm Otomatis: Fallback Logic
                 playAlarmSoundWithFallback();
+            }
+
+            // 2. PRIORITAS KEDUA: NOTIFIKASI
+            // Dibungkus try-catch agar tidak crash di Android Chrome jika gagal
+            if (Notification.permission === "granted") {
+                try {
+                    new Notification("ALARM SEKOLAH", { body: `Saatnya pergantian jam: ${time}`, icon: 'favicon.png' });
+                } catch (e) {
+                    // Abaikan error "Illegal constructor" di mobile
+                    console.warn("Notifikasi visual gagal (biasanya perlu ServiceWorker di Android):", e);
+                }
             }
         }
 
@@ -399,7 +404,11 @@
                 dot.classList.add('bg-green-500', 'animate-pulse');
                 text.textContent = "Sistem AKTIF";
 
-                if (Notification.permission !== "granted") Notification.requestPermission();
+                // Request notifikasi (tapi jangan crash kalau gagal)
+                try {
+                    if (Notification.permission !== "granted") Notification.requestPermission();
+                } catch(e) { console.log("Izin notifikasi error:", e); }
+
                 findNextAlarm();
 
             } else {
