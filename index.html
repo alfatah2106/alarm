@@ -48,7 +48,8 @@
 
     <!-- AUDIO ELEMENT CUSTOM -->
     <!-- Siapkan file bel.mp3 di folder yang sama. Jika tidak ada, sistem pakai fallback bunyi digital. -->
-    <audio id="customAlarmAudio" src="bel.mp3" preload="auto"></audio>
+    <!-- Playsinline ditambahkan untuk kompatibilitas mobile -->
+    <audio id="customAlarmAudio" src="bel.mp3" preload="auto" playsinline></audio>
 
     <!-- Navbar / Header -->
     <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg transition-colors duration-300">
@@ -111,6 +112,7 @@
                 </div>
                 <div class="mt-4 pt-4 border-t border-slate-700">
                     <p class="text-xs text-slate-500"><i class="fas fa-file-audio mr-1"></i> Prioritas Audio: <b>bel.mp3</b> (Fallback: Digital Beep)</p>
+                    <p class="text-[10px] text-yellow-500 mt-1"><i class="fas fa-mobile-alt mr-1"></i> Tips HP: Layar harus tetap menyala</p>
                 </div>
             </div>
 
@@ -164,6 +166,7 @@
         let isRinging = false;
         let oscillator = null;
         let lastTriggeredDayTime = "";
+        let wakeLock = null; // Variable untuk menjaga layar tetap nyala
 
         // --- INIT & STORAGE ---
         function init() {
@@ -172,6 +175,33 @@
             updateClock();
             setInterval(updateClock, 1000);
             updateTodayStats();
+
+            // Re-request wake lock on visibility change (jika user minimize dan balik lagi)
+            document.addEventListener("visibilitychange", async () => {
+                if (wakeLock !== null && document.visibilityState === "visible") {
+                    requestWakeLock();
+                }
+            });
+        }
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active!');
+                }
+            } catch (err) {
+                console.log(`Wake Lock Error: ${err.name}, ${err.message}`);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
+                });
+            }
         }
 
         function loadConfig() {
@@ -190,7 +220,6 @@
         }
 
         function resetToDefault() {
-            // Logic reset tanpa confirm di awal load, dengan confirm jika dipanggil tombol
             if(Object.keys(alarmConfig).length > 0 && !confirm("Kembalikan semua pengaturan jadwal ke awal?")) return;
 
             alarmConfig = {};
@@ -200,7 +229,6 @@
                     alarmConfig[day][time] = true;
                 });
             }
-            // Simpan hanya jika ini bukan inisialisasi awal kosong
             if(localStorage.getItem('schoolAlarmConfig_v2')) saveConfig();
             renderScheduleUI();
         }
@@ -339,27 +367,48 @@
             const text = document.getElementById('statusText');
 
             if (!isSystemActive) {
-                // Init Audio Context untuk Oscillator (Fallback)
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                audioContext.resume().then(() => {
-                    isSystemActive = true;
+                // 1. UNLOCK AUDIO DI MOBILE: Init Context
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(AudioContext) {
+                    audioContext = new AudioContext();
+                    audioContext.resume();
+                }
 
-                    // UI Update
-                    btn.classList.remove('bg-slate-700', 'border-slate-600');
-                    btn.classList.add('bg-slate-800', 'border-green-500', 'text-green-400');
-                    dot.classList.remove('bg-red-500');
-                    dot.classList.add('bg-green-500', 'animate-pulse');
-                    text.textContent = "Sistem AKTIF";
-
-                    if (Notification.permission !== "granted") Notification.requestPermission();
-
-                    // Bunyi Feedback
-                    playShortBeep();
-                    findNextAlarm();
+                // 2. UNLOCK MP3 DI MOBILE: Play & Pause Immediately
+                // Ini menipu browser agar menganggap audio sudah diizinkan user
+                const customAudio = document.getElementById('customAlarmAudio');
+                customAudio.volume = 0; // Silent dulu
+                customAudio.play().then(() => {
+                    customAudio.pause();
+                    customAudio.currentTime = 0;
+                    customAudio.volume = 1; // Kembalikan volume
+                    console.log("Audio unlock sukses");
+                }).catch(e => {
+                    console.log("Audio unlock warning: " + e);
                 });
+
+                // 3. AKTIFKAN WAKE LOCK (Agar HP tidak tidur)
+                requestWakeLock();
+
+                isSystemActive = true;
+
+                // UI Update
+                btn.classList.remove('bg-slate-700', 'border-slate-600');
+                btn.classList.add('bg-slate-800', 'border-green-500', 'text-green-400');
+                dot.classList.remove('bg-red-500');
+                dot.classList.add('bg-green-500', 'animate-pulse');
+                text.textContent = "Sistem AKTIF";
+
+                if (Notification.permission !== "granted") Notification.requestPermission();
+
+                // Bunyi Feedback
+                playShortBeep();
+                findNextAlarm();
+
             } else {
                 isSystemActive = false;
                 stopAlarmManual();
+                releaseWakeLock(); // Lepaskan wake lock
 
                 btn.classList.add('bg-slate-700', 'border-slate-600');
                 btn.classList.remove('bg-slate-800', 'border-green-500', 'text-green-400');
@@ -377,15 +426,12 @@
 
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    // MP3 berhasil diputar
-                    // Setup event listener untuk stop manual jika lagu selesai
                     customAudio.onended = () => {
                         if(isRinging) stopAlarmManual();
                     };
                 })
                 .catch(error => {
-                    console.warn("File bel.mp3 tidak ditemukan atau gagal diputar. Menggunakan Fallback Digital.");
-                    // Gagal? Pakai Oscillator
+                    console.warn("MP3 Gagal (Mungkin diblokir browser atau file tidak ada). Pindah ke Digital.", error);
                     playOscillatorAlarm();
                 });
             } else {
@@ -420,6 +466,7 @@
         }
 
         function playShortBeep() {
+            if (!audioContext) return;
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
             osc.connect(gain);
@@ -444,7 +491,7 @@
 
         function testAlarm() {
             if (!isSystemActive) {
-                alert("Aktifkan Sistem dulu (Tombol di pojok kanan atas)");
+                alert("PENTING UNTUK HP: Klik tombol 'Sistem Mati' di pojok kanan atas dulu sampai berubah jadi AKTIF.");
                 return;
             }
             triggerAlarm("UJI COBA");
